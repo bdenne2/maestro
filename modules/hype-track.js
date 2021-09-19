@@ -42,12 +42,12 @@ export default class HypeTrack {
      * @param {*} update - the update data
      */
     async _processHype(combat, update) {
-        if (!game.user.isGM || !Number.isNumeric(update.turn) || !combat.combatants.length || !this.playlist) {
+        if (!Number.isNumeric(update.turn) || !combat.combatants?.contents?.length || !this.playlist) {
             return;
         }
 
         // Stop any active hype tracks
-        if (this?.playlist?.playing) {
+        if (game.user.isGM && this?.playlist?.playing) {
             this.playlist.stopAll();
         }
 
@@ -56,7 +56,7 @@ export default class HypeTrack {
         const pauseOthers = game.settings.get(MAESTRO.MODULE_NAME, MAESTRO.SETTINGS_KEYS.HypeTrack.pauseOthers);
 
         if (!hypeTrack) {
-            if (this.pausedSounds.length) {
+            if (this?.pausedSounds?.length) {
                 // Resume any previously paused sounds
                 Playback.resumeSounds(this.pausedSounds);
                 this.pausedSounds = [];
@@ -67,21 +67,25 @@ export default class HypeTrack {
 
         if (pauseOthers) {
             // pause active playlists
-            this.pausedSounds = Playback.pauseAll();
+            this.pausedSounds = await Playback.pauseAll();
         }
         
 
         // Find the hype track's playlist sound and play it
         const hypeTrackSound = this.playlist.sounds.find(s => s._id === hypeTrack);
-        await this.playHype(combat.combatant.actor, {warn: false});
-        const howl = game.audio.sounds[hypeTrackSound.path].howl;
 
-        if (this.pausedSounds.length) {
-                // Defer the resumption of paused sounds after hype track finishes
-            howl.on("end", () => {
+        if (game.user.isGM) {
+            await this.playHype(combat.combatant.actor, {warn: false});
+        }
+        
+        const activeHypeSound = hypeTrackSound.sound;
+
+        if (this.pausedSounds?.length) {
+            activeHypeSound.on("end", () => {
+
                 Playback.resumeSounds(this.pausedSounds);
                 this.pausedSounds = [];
-            });
+            }, {once: true});
         }
     }
     
@@ -190,26 +194,26 @@ export default class HypeTrack {
     async playHype(actor, {warn=true, pauseOthers=false}={}) {
         if (typeof(actor) === "string") {
             actor = game.actors.getName(actor) || null;
-        } else if (actor instanceof Object) {
+        } else if (!(actor instanceof Actor) && actor instanceof Object) {
             actor = game.actors.getName(actor.name) || null;
         }
 
         if (!actor) {
-            if (warn) ui.notifications.warn(game.i18n.localize("HYPE-TRACK.PlayHype.NoActor"));
+            if (warn) ui.notifications.warn(game.i18n.localize("MAESTRO.HYPE-TRACK.PlayHype.NoActor"));
             return;
         }
 
         const hypeTrack = this._getActorHypeTrack(actor);
 
         if (!hypeTrack) {
-            if (warn) ui.notifications.warn(game.i18n.localize("HYPE-TRACK.PlayHype.NoTrack"));
+            if (warn) ui.notifications.warn(game.i18n.localize("MAESTRO.HYPE-TRACK.PlayHype.NoTrack"));
             return;
         }
 
         const playlist = this.playlist || game.playlists.entities.find(p => p.name === MAESTRO.DEFAULT_CONFIG.HypeTrack.playlistName || p.sounds.find(s => s._id === hypeTrack)) || null;
 
         if (!playlist) {
-            if (warn) ui.notifications.warn(game.i18n.localize("HYPE-TRACK.PlayHype.NoPlaylist"));
+            if (warn) ui.notifications.warn(game.i18n.localize("MAESTRO.HYPE-TRACK.PlayHype.NoPlaylist"));
         }
 
         if (playlist.playing) {
