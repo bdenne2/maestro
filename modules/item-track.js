@@ -60,8 +60,16 @@ export default class ItemTrack {
         
         let item;
         const itemId = itemCard.attr("data-item-id");
-        const actorId = itemCard.attr("data-actor-key");
-        const sceneTokenId = itemCard.attr("data-token-id");
+        let actorId = itemCard.attr("data-actor-id");
+        let sceneTokenId = itemCard.attr("data-token-id");
+
+        if(!actorId) { //Code for Call of Cthulhu. Not great, but until standardization...
+            actorId = itemCard.attr("data-actor-key");
+            if(actorId.includes(".")) {
+                sceneTokenId = actorId;
+                actorId = undefined;
+            }
+        }
 
         if (sceneTokenId) {
             const [sceneId, tokenId] = sceneTokenId.split(".");
